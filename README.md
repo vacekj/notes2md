@@ -1,6 +1,6 @@
 # Apple Notes Exporter
 
-A command-line tool to export Apple Notes to Markdown files with proper formatting and metadata preservation.
+A Rust command-line tool to export Apple Notes to Markdown files with proper formatting and metadata preservation.
 
 
 Based on: https://github.com/storizzi/notes-exporter
