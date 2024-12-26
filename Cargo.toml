@@ -1,7 +1,22 @@
 [package]
-name = "notes-exporter-rs"
+name = "apple-notes-exporter"
 version = "0.1.0"
 edition = "2021"
+description = "A library and CLI tool for exporting Apple Notes to Markdown"
+authors = ["Jozef Vacek"]
+license = "MIT"
+repository = "https://github.com/vacekj/apple-notes-exporter"
+readme = "README.md"
+keywords = ["apple", "notes", "markdown", "export"]
+categories = ["command-line-utilities", "text-processing"]
+
+[lib]
+name = "apple_notes_exporter"
+path = "src/lib.rs"
+
+[[bin]]
+name = "apple-notes-exporter"
+path = "src/main.rs"
 
 [dependencies]
 html5ever = "0.29"

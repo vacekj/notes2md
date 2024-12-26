@@ -1,75 +1,77 @@
 # Apple Notes Exporter
 
-A Rust command-line tool to export Apple Notes to Markdown files with proper formatting and metadata preservation.
-
-
-Based on: https://github.com/storizzi/notes-exporter
+A Rust library and CLI tool for exporting Apple Notes to Markdown files.
 
 ## Features
 
-- Exports Apple Notes to Markdown files
-- Preserves metadata in YAML frontmatter
-- Handles images and attachments
-- Supports folder organization
-- Preserves note creation and modification dates
-- Handles Czech characters and special formatting
+- Export all notes from Apple Notes to Markdown files
+- Preserve folder structure
+- Handle embedded images and attachments
+- Support for frontmatter metadata
+- Clean and modern Markdown output
+
+## Installation
+
+### As a CLI tool
+
+```bash
+cargo install apple-notes-exporter
+```
+
+### As a library
+
+Add this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+apple-notes-exporter = "0.1.0"
+```
 
 ## Usage
 
+### CLI
+
 ```bash
 # Export notes to current directory
-notes-exporter-rs
+apple-notes-exporter
 
-# Export to specific directory
-notes-exporter-rs -o /path/to/output
+# Export notes to specific directory
+apple-notes-exporter -o ./my-notes
 
-# Export without using subdirectories
-notes-exporter-rs --use-subdirs false
+# Export without using attachments folder
+apple-notes-exporter --use-attachments false
+
+# Export without subdirectories
+apple-notes-exporter --use-subdirs false
 ```
 
-## CLI Options
+### Library
 
-```
-Options:
-  -o, --output <PATH>            Output directory for markdown files [default: .]
-  -u, --use-attachments <BOOL>   Whether to use attachments folder for images [default: true]
-      --filename-format <STR>    Format for filenames [default: &title]
-      --subdir-format <STR>      Format for subdirectories [default: &folder]
-      --use-subdirs <BOOL>       Whether to use subdirectories [default: true]
-  -h, --help                     Print help
-  -V, --version                  Print version
-```
+```rust
+use apple_notes_exporter::{export_notes, ExportConfig};
+use std::path::PathBuf;
 
-### Format Variables
+fn main() -> anyhow::Result<()> {
+    let config = ExportConfig {
+        output_dir: PathBuf::from("./my-notes"),
+        use_attachments: true,
+        filename_format: String::from("&title"),
+        subdir_format: String::from("&folder"),
+        use_subdirs: true,
+    };
 
-The following variables can be used in filename and subdirectory formats:
-- `&title`: Note title
-- `&folder`: Folder name
-- `&account`: Account name
-- `&id`: Note ID
+    let notes = export_notes(&config)?;
+    println!("Exported {} notes", notes.len());
 
-## Output Format
-
-Each note is exported as a Markdown file with YAML frontmatter:
-
-```markdown
----
-title: "Note Title"
-folder: "Folder Name"
-account: "Account Name"
-id: "note-id"
-created: "Creation Date"
-modified: "Modification Date"
----
-
-Note content in Markdown format...
+    Ok(())
+}
 ```
 
 ## Requirements
 
 - macOS (uses AppleScript to access Notes)
-- Rust toolchain for building
+- Rust 1.70 or later
 
 ## License
 
-MIT License
+MIT
