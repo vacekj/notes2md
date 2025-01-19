@@ -1,3 +1,21 @@
+//! Apple Notes Exporter
+//!
+//! A library for exporting Apple Notes to Markdown files with support for images,
+//! attachments, and metadata preservation.
+//!
+//! # Example
+//! ```no_run
+//! use apple_notes_exporter::{export_notes, ExportConfig};
+//! use std::path::PathBuf;
+//!
+//! fn main() -> anyhow::Result<()> {
+//!     let config = ExportConfig::default();
+//!     let notes = export_notes(&config)?;
+//!     println!("Exported {} notes", notes.len());
+//!     Ok(())
+//! }
+//! ```
+
 use anyhow::{anyhow, Context, Result};
 use base64::{engine::general_purpose::STANDARD as base64, Engine as _};
 use scraper::{Html, Selector};
@@ -6,23 +24,37 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
+/// Represents a single Apple Note with its metadata and content.
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Note {
+    /// The title of the note
     pub title: String,
+    /// The HTML content of the note
     pub content: String,
+    /// The folder containing the note
     pub folder: String,
+    /// The account the note belongs to (e.g., "iCloud")
     pub account: String,
+    /// Unique identifier for the note
     pub id: String,
+    /// Creation date as a string
     pub created: String,
+    /// Last modification date as a string
     pub modified: String,
 }
 
+/// Configuration options for the export process.
 #[derive(Debug, Clone)]
 pub struct ExportConfig {
+    /// Directory where notes will be exported
     pub output_dir: PathBuf,
+    /// Whether to store images in a separate attachments folder
     pub use_attachments: bool,
+    /// Format string for filenames (supports &title, &folder, &account, &id)
     pub filename_format: String,
+    /// Format string for subdirectories (supports &title, &folder, &account, &id)
     pub subdir_format: String,
+    /// Whether to organize notes in subdirectories
     pub use_subdirs: bool,
 }
 
@@ -38,7 +70,24 @@ impl Default for ExportConfig {
     }
 }
 
-/// Exports all notes from Apple Notes to Markdown files
+/// Exports all notes from Apple Notes to Markdown files.
+///
+/// This function:
+/// 1. Creates the output directory if it doesn't exist
+/// 2. Retrieves all notes using AppleScript
+/// 3. Processes each note (converts HTML to Markdown, handles images)
+/// 4. Saves notes with their metadata as Markdown files
+///
+/// # Arguments
+/// * `config` - Configuration options for the export process
+///
+/// # Returns
+/// * `Result<Vec<Note>>` - A vector of all exported notes on success
+///
+/// # Errors
+/// * If the output directory cannot be created
+/// * If the AppleScript execution fails
+/// * If any note processing or saving fails
 pub fn export_notes(config: &ExportConfig) -> Result<Vec<Note>> {
     // Create output directory if it doesn't exist
     fs::create_dir_all(&config.output_dir).context("Failed to create output directory")?;
@@ -55,7 +104,15 @@ pub fn export_notes(config: &ExportConfig) -> Result<Vec<Note>> {
     Ok(notes)
 }
 
-/// Gets all notes from Apple Notes using AppleScript
+/// Retrieves all notes from Apple Notes using AppleScript.
+///
+/// # Returns
+/// * `Result<Vec<Note>>` - A vector of all notes on success
+///
+/// # Errors
+/// * If the AppleScript file is not found
+/// * If the AppleScript execution fails
+/// * If the output cannot be parsed as JSON
 pub fn get_notes() -> Result<Vec<Note>> {
     let script_path = PathBuf::from("export-notes.applescript");
     if !script_path.exists() {
@@ -85,7 +142,18 @@ pub fn get_notes() -> Result<Vec<Note>> {
     Ok(notes)
 }
 
-/// Processes a single note, converting it to Markdown and handling attachments
+/// Processes a single note, converting it to Markdown and handling attachments.
+///
+/// # Arguments
+/// * `note` - The note to process
+/// * `config` - Export configuration options
+///
+/// # Returns
+/// * `Result<String>` - The processed Markdown content
+///
+/// # Errors
+/// * If image extraction fails
+/// * If HTML processing fails
 pub fn process_note(note: &Note, config: &ExportConfig) -> Result<String> {
     // Extract images and get updated HTML
     let html_with_local_images = extract_and_save_images(
@@ -260,4 +328,123 @@ fn extract_and_save_images(
     }
 
     Ok(modified_html)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_export_config_default() {
+        let config = ExportConfig::default();
+        assert_eq!(config.output_dir, PathBuf::from("."));
+        assert!(config.use_attachments);
+        assert_eq!(config.filename_format, "&title");
+        assert_eq!(config.subdir_format, "&folder");
+        assert!(config.use_subdirs);
+    }
+
+    #[test]
+    fn test_process_note_with_images() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let config = ExportConfig {
+            output_dir: temp_dir.path().to_path_buf(),
+            use_attachments: true,
+            filename_format: String::from("&title"),
+            subdir_format: String::from("&folder"),
+            use_subdirs: true,
+        };
+
+        let note = Note {
+            title: String::from("Test Note"),
+            content: String::from(
+                r#"<p>Test content</p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="/>"#,
+            ),
+            folder: String::from("Test Folder"),
+            account: String::from("Test Account"),
+            id: String::from("test-id"),
+            created: String::from("2024-01-01"),
+            modified: String::from("2024-01-01"),
+        };
+
+        let markdown = process_note(&note, &config)?;
+        assert!(markdown.contains("![](attachments/attachment-001.png)"));
+
+        // Check if image was saved
+        let image_path = temp_dir
+            .path()
+            .join("Test Folder")
+            .join("attachments")
+            .join("attachment-001.png");
+        assert!(image_path.exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_process_note_with_h1() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let config = ExportConfig {
+            output_dir: temp_dir.path().to_path_buf(),
+            use_attachments: true,
+            filename_format: String::from("&title"),
+            subdir_format: String::from("&folder"),
+            use_subdirs: true,
+        };
+
+        let note = Note {
+            title: String::from("Test Note"),
+            content: String::from(
+                "<h1>Title 1</h1><p>Content 1</p><h1>Title 2</h1><p>Content 2</p>",
+            ),
+            folder: String::from("Test Folder"),
+            account: String::from("Test Account"),
+            id: String::from("test-id"),
+            created: String::from("2024-01-01"),
+            modified: String::from("2024-01-01"),
+        };
+
+        let markdown = process_note(&note, &config)?;
+        assert!(markdown.starts_with("# Title 1Title 2\n\n"));
+        assert!(markdown.contains("Content 1"));
+        assert!(markdown.contains("Content 2"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_note_path() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let config = ExportConfig {
+            output_dir: temp_dir.path().to_path_buf(),
+            use_attachments: true,
+            filename_format: String::from("&title"),
+            subdir_format: String::from("&folder"),
+            use_subdirs: true,
+        };
+
+        let note = Note {
+            title: String::from("Test Note"),
+            content: String::from("Test content"),
+            folder: String::from("Test Folder"),
+            account: String::from("Test Account"),
+            id: String::from("test-id"),
+            created: String::from("2024-01-01"),
+            modified: String::from("2024-01-01"),
+        };
+
+        let path = get_note_path(&note, &config)?;
+        assert_eq!(path, temp_dir.path().join("Test Folder"));
+
+        let config_no_subdirs = ExportConfig {
+            use_subdirs: false,
+            ..config
+        };
+        let path_no_subdirs = get_note_path(&note, &config_no_subdirs)?;
+        assert_eq!(path_no_subdirs, temp_dir.path());
+
+        Ok(())
+    }
 }
