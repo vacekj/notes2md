@@ -56,6 +56,8 @@ pub struct ExportConfig {
     pub subdir_format: String,
     /// Whether to organize notes in subdirectories
     pub use_subdirs: bool,
+    /// Whether to save HTML files alongside Markdown (for debugging)
+    pub save_html: bool,
 }
 
 impl Default for ExportConfig {
@@ -66,6 +68,7 @@ impl Default for ExportConfig {
             filename_format: String::from("&title"),
             subdir_format: String::from("&folder"),
             use_subdirs: true,
+            save_html: false,
         }
     }
 }
@@ -162,8 +165,10 @@ pub fn process_note(note: &Note, config: &ExportConfig) -> Result<String> {
         config.use_attachments,
     )?;
 
-    // Save the HTML for investigation
-    save_html(note, &html_with_local_images, config)?;
+    // Save the HTML for investigation (optional)
+    if config.save_html {
+        save_html(note, &html_with_local_images, config)?;
+    }
 
     // Convert to markdown
     let markdown = html2md::parse_html(&html_with_local_images);
@@ -344,6 +349,7 @@ mod tests {
         assert_eq!(config.filename_format, "&title");
         assert_eq!(config.subdir_format, "&folder");
         assert!(config.use_subdirs);
+        assert!(!config.save_html);
     }
 
     #[test]
@@ -355,6 +361,7 @@ mod tests {
             filename_format: String::from("&title"),
             subdir_format: String::from("&folder"),
             use_subdirs: true,
+            save_html: false,
         };
 
         let note = Note {
@@ -392,6 +399,7 @@ mod tests {
             filename_format: String::from("&title"),
             subdir_format: String::from("&folder"),
             use_subdirs: true,
+            save_html: false,
         };
 
         let note = Note {
@@ -423,6 +431,7 @@ mod tests {
             filename_format: String::from("&title"),
             subdir_format: String::from("&folder"),
             use_subdirs: true,
+            save_html: false,
         };
 
         let note = Note {

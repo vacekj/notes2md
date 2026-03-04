@@ -25,6 +25,10 @@ struct Cli {
     /// Whether to use subdirectories
     #[arg(long, default_value = "true")]
     use_subdirs: bool,
+
+    /// Save HTML files alongside Markdown (for debugging)
+    #[arg(long, default_value = "false")]
+    save_html: bool,
 }
 
 fn main() -> Result<()> {
@@ -39,6 +43,7 @@ fn main() -> Result<()> {
         filename_format: cli.filename_format,
         subdir_format: cli.subdir_format,
         use_subdirs: cli.use_subdirs,
+        save_html: cli.save_html,
     };
 
     let notes = export_notes(&config)?;
